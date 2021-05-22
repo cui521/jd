@@ -63,15 +63,23 @@ const JD_API_HOST = 'https://api.m.jd.com/api';
       }
       await getUserInfo();
 
-      if (helpAuthor && $.authorCode.length > 0) {
+      if (helpAuthor && $.authorCode.length > 0 && $.actId) {
         console.log(`开始助力`)
         for (let code of $.authorCode) {
           const helpRes = await help(code.shareCode, code.groupCode);
-          await sleep(200)
+
+          if (helpRes && !helpRes.data.hasOwnProperty('respCode')) {
+            console.log(`助力失败, 返回结果出错`);
+            await sleep(500)
+            continue;
+          }
+
           if (helpRes && helpRes.data.respCode === 'SG209') {
             console.log(`助力次数已耗尽，跳出助力`)
             break;
           }
+
+          await sleep(200)
         }
       }
     }
@@ -98,6 +106,7 @@ function sleep (time) {
 }
 
 function getUserInfo() {
+  $.actId = ''
   return new Promise(resolve => {
     $.post(taskUrl('signBeanGroupStageIndex', 'body'), async (err, resp, data) => {
       try {
@@ -107,8 +116,12 @@ function getUserInfo() {
         } else {
           if (safeGet(data)) {
             data = JSON.parse(data);
-            $.actId = data.data.jklInfo.keyId
-            //console.log($.actId)
+            if(data.data.hasOwnProperty('jklInfo')){
+              $.actId = data.data.jklInfo.keyId;
+            }else{
+              console.log(data);
+              console.log('jklInfo 为空, 助力跳过');
+            }
           }
         }
       } catch (e) {
@@ -136,7 +149,11 @@ function help(shareCode, groupCode) {
           if (safeGet(data)) {
             data = JSON.parse(data);
             console.log(`【抢京豆】去助力好友${groupCode}`)
-            console.log(`【抢京豆】${data.data.helpToast}`)
+            if(data.data.hasOwnProperty('helpToast')){
+              console.log(`【抢京豆】${data.data.helpToast}`)
+            }else{
+              console.log(`【抢京豆】${data.data}`)
+            }
           }
         }
       } catch (e) {
